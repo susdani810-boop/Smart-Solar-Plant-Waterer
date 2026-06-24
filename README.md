@@ -17,7 +17,9 @@ Ecco la lista dei componenti pronta da copiare e incollare direttamente su GitHu
 🛒 Components List & AliExpress Search Terms
 Here is the complete part list for this project. If you want to replicate it, you can find every component on AliExpress using the exact search terms provided in the parentheses:
 
--Microcontroller: ESP32 Development Board - 30 or 38 pins (ESP32 NodeMCU ESP-WROOM-32)                              https://it.aliexpress.com/item/1005006763775106.html?spm=a2g0o.order_list.order_list_main.5.651e3696stFDGw&gatewayAdapt=glo2ita (TAKE IT THE ESP AND THE BREAKOUTBOARD)
+-Microcontroller: ESP32 Development Board - 30 or 38 pins (ESP32 NodeMCU ESP-WROOM-32)                              https://it.aliexpress.com/item/1005006763775106.html?spm=a2g0o.order_list.order_list_main.5.651e3696stFDGw&gatewayAdapt=glo2ita (TAKE IT THE ESP AND THE BREAKOUTBOARD) 
+<img width="220" height="220" alt="image" src="https://github.com/user-attachments/assets/1f8b7810-ae0e-4c3e-b7ce-48debb1007cf" />
+
 
 -Real-Time Clock: DS3231 RTC Module with battery (DS3231 RTC module High Precision)                                                                                https://it.aliexpress.com/item/1005007143596890.html?spm=a2g0o.order_list.order_list_main.29.651e3696stFDGw&gatewayAdapt=glo2ita
 
