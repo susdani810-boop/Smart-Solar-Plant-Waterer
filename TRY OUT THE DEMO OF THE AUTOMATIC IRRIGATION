@@ -1,1 +1,23 @@
+I created this interactive simulation on Wokwi to provide a visual and functional proof of concept for my automated irrigation system, allowing anyone to test the logic and code execution without needing the physical hardware.
+
+Since Wokwi has some component limitations, I made a few smart adaptations to accurately simulate the real-world circuit:
+
+LEDs instead of Water Pumps: In the actual project, the system drives two 5V DC water pumps. In this simulation, I replaced them with two colored LEDs (Red and Blue). When a relay clicks and a channel activates, the corresponding LED lights up, giving an immediate visual confirmation that the pump would be running.
+
+Two Single Relays instead of a 2-Channel Board: The physical build uses a single, compact 2-channel relay module. Because a combined 2-channel module isn't native to Wokwi, I used two separate single-relay modules side-by-side. They are wired independently to the ESP32 but behave exactly like the dual-channel board, managing the power lines for each simulated pump.
+
+DS1307 RTC instead of DS3231: The real hardware relies on a DS3231 real-time clock module for high-precision timekeeping. For the simulation, I used the DS1307 module. It shares the exact same I2C communication protocol and wiring pins (SDA to GPIO 21, SCL to GPIO 22), keeping the time-tracking logic perfectly identical.
+
+Fully Working Serial Monitor Log: When you run the simulation, you can open the Serial Monitor to watch the live system logs. It displays the boot process, reads the current time from the RTC, and tracks manual overrides when triggers are pressed.
+
+This setup showcases the exact automation behavior, safety checks, and button-press logic that run on the physical ESP32 controller!
+
+
+HERE ARE SOME PHOTOS ABOUT THE WOKWI SITE:
+
+
+
+THIS IS THE LINK IF YOU WANT TO TRY IT:    https://wokwi.com/projects/467719133093636097
+
+
 
