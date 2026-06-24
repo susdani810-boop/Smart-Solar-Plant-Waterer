@@ -1,0 +1,40 @@
+---
+
+### 🔌 Wiring & Connection Guide (Schema Collegamenti)
+
+Here is exactly how to connect all the components together. Follow these connections step-by-step:
+
+#### 1. Real-Time Clock (DS3231) ➔ ESP32
+The RTC handles the time schedule and talks to the ESP32 via I2C protocol:
+* **GND** ➔ ESP32 **GND**
+* **VCC** ➔ ESP32 **3V3** (or 5V depending on your module version)
+* **SDA** ➔ ESP32 **GPIO 21**
+* **SCL** ➔ ESP32 **GPIO 22**
+
+#### 2. Dual-Channel Relay Module ➔ ESP32 & Power
+The relay module acts as an electronic switch to turn the pumps on and off safely:
+* **GND** ➔ ESP32 **GND**
+* **IN1** (Controls Pump 1) ➔ ESP32 **GPIO 25**
+* **IN2** (Controls Pump 2) ➔ ESP32 **GPIO 26**
+* **VCC** ➔ UPS Board **5V Out** (Relays need a stable 5V to click properly)
+
+#### 3. Power Management (UPS Board) ➔ ESP32 & Solar
+The UPS board is the heart of the power system, managing the 18650 batteries:
+* **5V Output (+ / -)** ➔ Connect to the **5V and GND** pins of the ESP32 to power the microcontroller.
+* **Solar Input (+ / -)** ➔ Connect the bare wires coming directly from the **Solar Panel** (Positive to +, Negative to -).
+
+#### 4. Water Pumps & Relay Power Circuit
+To power the pumps safely without drawing too much current through the ESP32:
+1. Connect the **Negative (-) wire** of both Pump 1 and Pump 2 directly to the **GND** of your UPS power output.
+2. Connect a wire from the **5V Positive (+)** of your UPS output to the **COM (Common)** terminal of both relay channels.
+3. Connect the **Positive (+) wire of Pump 1** to the **NO (Normally Open)** terminal of Relay Channel 1.
+4. Connect the **Positive (+) wire of Pump 2** to the **NO (Normally Open)** terminal of Relay Channel 2.
+
+---
+
+### 🛠️ What to Do next (Assembly Steps)
+
+1. **Double Check polarities:** Before turning anything on, make sure the Positive (+) and Negative (-) wires on the solar panel and UPS board are not swapped. Swapping them can fry the chips!
+2. **Place the 18650 Batteries:** Pop the cells into the UPS shield holder. Look at the icons on the board to place them in the correct direction.
+3. **Mount in the Enclosure:** Secure the ESP32, RTC, and relay board inside the plastic project box using double-sided tape or small standoffs. 
+4. **Route the Hoses:** Run the input and output silicone hoses through the custom slots on your box, placing the input lines inside your water reservoir.
