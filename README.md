@@ -105,7 +105,17 @@ https://it.aliexpress.com/item/1005006190980723.html?spm=a2g0o.order_list.order_
 
 
 -Cables & Accessories: Breadboard jumper wires                                                                                                                    
-https://it.aliexpress.com/item/1005009071621102.html?spm=a2g0o.productlist.main.2.68c2OxUyOxUymf&algo_pvid=c15dc057-94f0-4e4a-b859-d0cea2fd2075&algo_exp_id=c15dc057-94f0-4e4a-b859-d0cea2fd2075-1&pdp_ext_f=%7B%22order%22%3A%2211020%22%2C%22spu_best_type%22%3A%22price%22%2C%22eval%22%3A%221%22%2C%22fromPage%22%3A%22search%22%7D&pdp_npi=6%40dis%21EUR%214.53%214.53%21%21%2134.22%2134.22%21%40211b61bb17823019045871820eacd1%2112000047812726049%21sea%21IT%216257754572%21X%211%210%21n_tag%3A-29919%3Bd%3Aec81afa4%3Bm03_new_user%3A-29895&curPageLogUid=TNkOxUB4RMaa&utparam-url=scene%3Asearch%7Cquery_from%3A%7Cx_object_id%3A1005009071621102%7C_p_origin_prod%3A             
+https://it.aliexpress.com/item/1005009071621102.html?spm=a2g0o.productlist.main.2.68c2OxUyOxUymf&algo_pvid=c15dc057-94f0-4e4a-b859-d0cea2fd2075&algo_exp_id=c15dc057-94f0-4e4a-b859-d0cea2fd2075-1&pdp_ext_f=%7B%22order%22%3A%2211020%22%2C%22spu_best_type%22%3A%22price%22%2C%22eval%22%3A%221%22%2C%22fromPage%22%3A%22search%22%7D&pdp_npi=6%40dis%21EUR%214.53%214.53%21%21%2134.22%2134.22%21%40211b61bb17823019045871820eacd1%2112000047812726049%21sea%21IT%216257754572%21X%211%210%21n_tag%3A-29919%3Bd%3Aec81afa4%3Bm03_new_user%3A-29895&curPageLogUid=TNkOxUB4RMaa&utparam-url=scene%3Asearch%7Cquery_from%3A%7Cx_object_id%3A1005009071621102%7C_p_origin_prod%3A   
+
+
+
+<img width="220" height="220" alt="image" src="https://github.com/user-attachments/assets/5525f0f8-2892-4551-9e02-1d8a74c1953f" />
+
+
+
+
+
+
  (TAKE THE KIT:15cm KIT)
 
                                                                                   
