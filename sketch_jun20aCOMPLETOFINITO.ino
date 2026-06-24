@@ -1,0 +1,248 @@
+#include <Wire.h>
+#include "RTClib.h"
+#include <EEPROM.h>
+
+// PIN RELE'
+const int PIN_RELE_POMPA1 = 25;
+const int PIN_RELE_POMPA2 = 26;
+
+// DURATA IRRIGAZIONE (10 secondi)
+const unsigned long DURATA_POMPA1_MS = 10UL * 1000UL;
+const unsigned long DURATA_POMPA2_MS = 10UL * 1000UL;
+
+// ORARIO DI ATTIVAZIONE (08:00 e 08:02)
+const uint8_t ORA_IRRIGAZIONE   = 8;
+const uint8_t MINUTO_POMPA1     = 0;
+const uint8_t MINUTO_POMPA2     = 2;
+
+// INTERVALLO POMPA 1: ogni 2 giorni (espressi in secondi)
+const uint32_t INTERVALLO_POMPA1_SEC = 172800UL;
+
+// GIORNO POMPA 2: Sabato (0=Dom, 1=Lun, ..., 6=Sab)
+const uint8_t GIORNO_POMPA2 = 6;
+
+// SENSORE GALLEGGIANTE (Opzionale)
+const bool USA_GALLEGGIANTE = false;
+const int PIN_GALLEGGIANTE = 27;
+
+// CONFIGURAZIONE EEPROM
+const int EEPROM_ADDR_TIMESTAMP  = 0;
+const int EEPROM_ADDR_GIORNO_P2  = 4;
+const int EEPROM_ADDR_MAGIC      = 5;
+const uint8_t EEPROM_MAGIC_VAL   = 0xAA;
+const uint8_t EEPROM_DAY_EMPTY   = 0xFF;
+
+RTC_DS3231 rtc;
+
+uint32_t ultimoTimestampPompa1 = 0;
+uint8_t  ultimoGiornoPompa2    = EEPROM_DAY_EMPTY;
+
+bool pompa1OggiEseguita  = false;
+bool pompa2OggiEseguita  = false;
+bool pompa1Attiva = false;
+bool pompa2Attiva = false;
+unsigned long timerPompa1 = 0;
+unsigned long timerPompa2 = 0;
+bool pompa1HaFinitoDaPoco = false;
+bool pompa2HaFinitoDaPoco = false;
+
+void eepromWriteUint32(int addr, uint32_t value) {
+  EEPROM.write(addr + 0, (value >>  0) & 0xFF);
+  EEPROM.write(addr + 1, (value >>  8) & 0xFF);
+  EEPROM.write(addr + 2, (value >> 16) & 0xFF);
+  EEPROM.write(addr + 3, (value >> 24) & 0xFF);
+  EEPROM.commit();
+}
+
+uint32_t eepromReadUint32(int addr) {
+  uint32_t value = 0;
+  value |= ((uint32_t)EEPROM.read(addr + 0)) <<  0;
+  value |= ((uint32_t)EEPROM.read(addr + 1)) <<  8;
+  value |= ((uint32_t)EEPROM.read(addr + 2)) << 16;
+  value |= ((uint32_t)EEPROM.read(addr + 3)) << 24;
+  return value;
+}
+
+bool serbatoioOk() {
+  if (!USA_GALLEGGIANTE) return true;
+  return digitalRead(PIN_GALLEGGIANTE) == LOW;
+}
+
+void salvaStatoFinalePompa1() {
+  eepromWriteUint32(EEPROM_ADDR_TIMESTAMP, ultimoTimestampPompa1);
+  Serial.println("[EEPROM] Timestamp Pompa 1 salvato.");
+}
+
+void salvaStatoFinalePompa2() {
+  EEPROM.write(EEPROM_ADDR_GIORNO_P2, ultimoGiornoPompa2);
+  EEPROM.commit();
+  Serial.println("[EEPROM] Giorno Pompa 2 salvato.");
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(200);
+  Serial.println();
+  Serial.println("=== Avvio sistema irrigazione ===");
+
+  EEPROM.begin(10);
+
+  uint8_t magic = EEPROM.read(EEPROM_ADDR_MAGIC);
+  if (magic != EEPROM_MAGIC_VAL) {
+    Serial.println("[EEPROM] Prima inizializzazione.");
+    eepromWriteUint32(EEPROM_ADDR_TIMESTAMP, 0);
+    EEPROM.write(EEPROM_ADDR_GIORNO_P2, EEPROM_DAY_EMPTY);
+    EEPROM.write(EEPROM_ADDR_MAGIC, EEPROM_MAGIC_VAL);
+    EEPROM.commit();
+    ultimoTimestampPompa1 = 0;
+    ultimoGiornoPompa2    = EEPROM_DAY_EMPTY;
+  } else {
+    ultimoTimestampPompa1 = eepromReadUint32(EEPROM_ADDR_TIMESTAMP);
+    ultimoGiornoPompa2    = EEPROM.read(EEPROM_ADDR_GIORNO_P2);
+    Serial.print("[EEPROM] Timestamp Pompa 1: ");
+    Serial.println(ultimoTimestampPompa1);
+    Serial.print("[EEPROM] Ultimo giorno Pompa 2: ");
+    Serial.println(ultimoGiornoPompa2);
+  }
+
+  pinMode(PIN_RELE_POMPA1, OUTPUT);
+  pinMode(PIN_RELE_POMPA2, OUTPUT);
+  digitalWrite(PIN_RELE_POMPA1, HIGH);
+  digitalWrite(PIN_RELE_POMPA2, HIGH);
+
+  if (USA_GALLEGGIANTE) {
+    pinMode(PIN_GALLEGGIANTE, INPUT_PULLUP);
+    Serial.println("[SENS] Galleggiante abilitato.");
+  }
+
+  Wire.begin();
+  if (!rtc.begin()) {
+    Serial.println("[ERR] RTC non trovato! Riprovo...");
+    delay(1000);
+    if (!rtc.begin()) {
+      Serial.println("[ERR] RTC ancora assente. Sistema in modalita ridotta.");
+    }
+  }
+
+  if (rtc.begin() && rtc.lostPower()) {
+    Serial.println("[RTC] Batteria scarica o primo avvio, sincronizzo con ora compilazione.");
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+
+  if (rtc.begin()) {
+    DateTime now = rtc.now();
+    Serial.print("[RTC] Ora attuale: ");
+    Serial.println(now.timestamp());
+  }
+
+  pompa1OggiEseguita = false;
+  pompa2OggiEseguita = false;
+}
+
+void loop() {
+  if (Serial.available()) {
+    char cmd = Serial.read();
+    if (cmd == 'i') {
+      Serial.println("[CMD] Attivazione manuale Pompa 1");
+      if (!pompa1Attiva && serbatoioOk()) {
+        digitalWrite(PIN_RELE_POMPA1, LOW);
+        pompa1Attiva = true;
+        timerPompa1  = millis();
+      } else {
+        Serial.println("[CMD] Pompa 1 non attivabile (serbatoio vuoto o gia attiva).");
+      }
+    } else if (cmd == 's') {
+      Serial.println("[CMD] Spegnimento manuale Pompa 1");
+      if (pompa1Attiva) {
+        digitalWrite(PIN_RELE_POMPA1, HIGH);
+        pompa1Attiva = false;
+        pompa1HaFinitoDaPoco = true;
+        ultimoTimestampPompa1 = rtc.now().unixtime();
+      }
+    }
+  }
+
+  DateTime now = rtc.now();
+  uint8_t  ora    = now.hour();
+  uint8_t  minuto = now.minute();
+  uint8_t  giorno = now.day();
+  uint8_t  gSett  = now.dayOfTheWeek();
+  uint32_t ts     = now.unixtime();
+
+  static uint8_t ultimoGiornoRilevato = 0xFF;
+  if (giorno != ultimoGiornoRilevato) {
+    ultimoGiornoRilevato  = giorno;
+    pompa1OggiEseguita    = false;
+    pompa2OggiEseguita    = false;
+  }
+
+  if (ora == ORA_IRRIGAZIONE && minuto == MINUTO_POMPA1 && !pompa1OggiEseguita && !pompa1Attiva) {
+    bool intervalloRispettato = (ultimoTimestampPompa1 == 0) || (ts - ultimoTimestampPompa1) >= INTERVALLO_POMPA1_SEC;
+    if (intervalloRispettato) {
+      if (serbatoioOk()) {
+        Serial.println(">>> Avvio Pompa 1 (ogni 2 giorni)");
+        digitalWrite(PIN_RELE_POMPA1, LOW);
+        pompa1Attiva        = true;
+        timerPompa1         = millis();
+        pompa1OggiEseguita  = true;
+      } else {
+        Serial.println("[WARN] Serbatoio vuoto, Pompa 1 non avviata.");
+        pompa1OggiEseguita  = true;
+      }
+    } else {
+      pompa1OggiEseguita = true;
+    }
+  }
+
+  if (ora == ORA_IRRIGAZIONE && minuto == MINUTO_POMPA2 && gSett == GIORNO_POMPA2 && !pompa2OggiEseguita && !pompa2Attiva) {
+    if (ultimoGiornoPompa2 != giorno) {
+      if (serbatoioOk()) {
+        Serial.println(">>> Avvio Pompa 2 (sabato)");
+        digitalWrite(PIN_RELE_POMPA2, LOW);
+        pompa2Attiva        = true;
+        timerPompa2         = millis();
+        pompa2OggiEseguita  = true;
+      } else {
+        Serial.println("[WARN] Serbatoio vuoto, Pompa 2 non avviata.");
+        pompa2OggiEseguita  = true;
+      }
+    } else {
+      pompa2OggiEseguita = true;
+    }
+  }
+
+  if (pompa1Attiva && (millis() - timerPompa1 >= DURATA_POMPA1_MS)) {
+    Serial.println(">>> Stop Pompa 1");
+    digitalWrite(PIN_RELE_POMPA1, HIGH);
+    pompa1Attiva         = false;
+    pompa1HaFinitoDaPoco = true;
+    ultimoTimestampPompa1 = ts;
+  }
+
+  if (pompa2Attiva && (millis() - timerPompa2 >= DURATA_POMPA2_MS)) {
+    Serial.println(">>> Stop Pompa 2");
+    digitalWrite(PIN_RELE_POMPA2, HIGH);
+    pompa2Attiva         = false;
+    pompa2HaFinitoDaPoco = true;
+    ultimoGiornoPompa2   = giorno;
+  }
+
+  if (pompa1HaFinitoDaPoco) {
+    salvaStatoFinalePompa1();
+    pompa1HaFinitoDaPoco = false;
+  }
+  if (pompa2HaFinitoDaPoco) {
+    salvaStatoFinalePompa2();
+    pompa2HaFinitoDaPoco = false;
+  }
+
+  if (ora > 23 || minuto > 59) {
+    static unsigned long lastErrTs = 0;
+    if (millis() - lastErrTs > 60000) {
+      lastErrTs = millis();
+      Serial.println("[ERR] RTC ha restituito valori invalidi, irrigazione sospesa.");
+    }
+  }
+
+  delay(50);
+}
