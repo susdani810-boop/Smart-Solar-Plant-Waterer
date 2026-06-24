@@ -129,3 +129,6 @@ I ADDED A FILE THAT EXPLAINS YOU HOW TO CONNECT THE CABLES IN THE RIGHT WAY, IT'
 I ALSO ADDED A FILE WITH THE CODE YOU HAVE TO PUT INTO ARDUINO IDE, IT'S CALLED:sketch_jun20aCOMPLETOFINITO.ino
 
 Before you buy the things if you want to try it first you can by using this link: https://wokwi.com/projects/467719133093636097
+HERE THERE ARE SOME PHOTOES ABOUT THE WOKWI WEBSITE:
+
+<img width="762" height="657" alt="image" src="https://github.com/user-attachments/assets/6f4ba85a-7ec5-4bc8-ae76-59e02aec5f0e" />
