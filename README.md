@@ -39,3 +39,4 @@ Here is the complete part list for this project. If you want to replicate it, yo
 
 💰 Estimated Total Budget
 Total Estimated Cost: ~€43.00 – €48.00 (with free or budget shipping options on AliExpress)
+I ADDED A FILE THAT EXPLAINS YOU HOW TO CONNECT THE CABLES IN THE RIGHT WAY
