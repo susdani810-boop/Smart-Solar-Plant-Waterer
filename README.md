@@ -132,3 +132,10 @@ Before you buy the things if you want to try it first you can by using this link
 HERE THERE ARE SOME PHOTOES ABOUT THE WOKWI WEBSITE:
 
 <img width="762" height="657" alt="image" src="https://github.com/user-attachments/assets/6f4ba85a-7ec5-4bc8-ae76-59e02aec5f0e" />
+
+
+
+
+
+I HAVE ALSO ADDED A VIDEO FOR THE COMPONENTS, BUT IT ISN'T A GOOD QUALITY, IF YOU WANT TO SEE IT HERE IT IS:
+https://www.youtube.com/watch?v=XXyBIEqruyQ
