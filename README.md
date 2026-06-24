@@ -1,4 +1,4 @@
-# My ESP32 Smart Solar Irrigator (with some budget maker hacks!) 🌿☀️
+# My ESP32 Smart Solar Irrigator  🌿☀️
 
 I wanted to share my latest DIY project: a fully automated, solar-powered dual-pump irrigation system built to keep my plants alive and well! 
 
