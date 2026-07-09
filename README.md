@@ -1,19 +1,10 @@
-# My ESP32 Smart Solar Irrigator  🌿☀️
-
-I wanted to share my latest DIY project: a fully automated, solar-powered dual-pump irrigation system built to keep my plants alive and well! 
-
-Everything is controlled by an **ESP32**, an **RTC (DS3231)** module for precise timing, and a **dual-channel relay module** to trigger the pumps. 
-
-Since I'm still waiting for a few components, I had to come up with some pretty cool "hacks" along the way to test everything:
-1. **The "No-Battery" Test:** I don't have my lithium batteries yet, but I couldn't wait to test the hardware. I hooked everything up to an UPS module powered by a powerbank. All the LEDs lit up perfectly on the first try!
-2. **Serial Monitor Control:** To test the dual-pump setup without changing the schedule in my main code, I built an interactive serial test. Typing `i` in the Arduino IDE triggers Pump 1 for a crisp 10-second run. To test Pump 2 without code edits, I just swapped the terminal wires and triggered it through the same command. Both pumps are working flawlessly!
-
-**Next steps:** Testing the solar panel out in the sun (using the UPS module as a 5V regulator to see if it charges a phone first) and dropping the lithium cells in to make it 100% off-grid.
-
-Let me know what you think or if you have any tips for solar power optimization! 🚀
-
-Ecco la lista dei componenti pronta da copiare e incollare direttamente su GitHub o dove preferisci, configurata con le parole chiave esatte per la ricerca su AliExpress e un calcolo che rientra perfettamente nel budget che hai chiesto!
-
+Hey everyone, wanted to share my new project with you: An Automatic Solar powered double pump watering system that I made so my plants won’t die while I forget about them! 
+Microcontroller used in this project is an ESP32 with an RTC module(DS3231) for precise time keeping and a 2 Channel relay module to power on/off the pumps.
+Still waiting on some components , so i had to improvise some " to validate if everything worked:
+Battery-less test: I still didn’t receive my lithium cells, but I couldn’t wait any longer to test this! So I connected everything to a UPS module, powered for now with a powerbank. Plugged everything in and it worked
+Serial Monitor controle: I needed a way to test pumping without having to change the timer everytime in my main program. So i created an interactive serial test. Send an "i" through the Arduino IDE, Pump 1 powers ON for 10 seconds. To check if Pump 2 worked, i just switched the wires on both terminals and send the command again. Both pumps worked flawlessly!
+Next upgrade: outdoor testing with the solar panel! I thought about using the UPS module as a 5V regulator to power everything, just to check if it can charge a cellphone first before getting into trouble. Then insert the lithium batteries and goodbye dependence to wall plug!
+Please let me know what you guys think!
 🛒 Components List & AliExpress Search Terms
 Here is the complete part list for this project. If you want to replicate it, you can find every component on AliExpress using the exact search terms provided in the parentheses:
 
