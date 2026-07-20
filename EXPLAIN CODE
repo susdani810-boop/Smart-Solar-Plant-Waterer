@@ -1,0 +1,23 @@
+How the code works:
+
+This system connects to your home Wi-Fi to automatically get the exact time from the internet, meaning you never have to set the clock manually.
+It saves this time onto a small backup battery clock module, so even if your Wi-Fi goes down or the power cuts out, the system keeps counting the time perfectly 
+and will not lose its place.
+
+The website built into the board is protected by two different passwords.
+The first password lets anyone log in to see the countdown timers and turn the pumps on manually if needed.
+The second password unlocks a special section at the bottom of the page that shows the system health, such as how long the board has been running,
+the Wi-Fi signal strength, and if the water tank is running empty.
+
+Thanks to an internal memory, the system always remembers the last time it watered the plants. 
+If the power cuts out and turns back on, it checks this memory so it knows exactly when to start again without accidentally watering your plants twice.
+Pump 1 is set to run automatically every two days at 8:00 AM, and Pump 2 runs once a week on Saturdays at 8:02 AM. T
+here is also a built-in safety feature for a water float sensor, which automatically stops the pumps from running if the main water tank goes completely empty.
+
+How to set it up:
+
+First, open the code in the Arduino IDE and type your Wi-Fi name and password at lines 9 and 10.
+Then, change the website passwords on lines 13 and 14 to whatever you prefer.
+
+If you live outside of Italy or Central Europe, you can change the time zone setting on line 18 to match your area. 
+Finally, upload the code to your board and open the Serial Monitor at 115200 speed to see the website address you need to type into your phone or computer browser.
