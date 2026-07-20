@@ -1,6 +1,27 @@
 #include <Wire.h>
 #include "RTClib.h"
 #include <EEPROM.h>
+#include <WiFi.h>
+#include <WebServer.h>
+#include <time.h> // Libreria standard per la gestione del tempo e fuso orario
+
+// ==========================================
+// CONFIGURAZIONE UTENTE (DA PERSONALIZZARE)
+// ==========================================
+const char* ssid     = "IL_TUO_WIFI";
+const char* password = "LA_TUA_PASSWORD";
+
+// PASSWORD DI ACCESSO AL PANNELLO WEB
+const char* PASSWORD_SITO  = "user123";    // Password generale per usare il sito
+const char* PASSWORD_ADMIN = "admin123";   // Password speciale per sbloccare la modalità ADMIN
+
+// CONFIGURAZIONE FUSO ORARIO (Default: Europa/Roma)
+// Gestisce in automatico Ora Solare (CET, +1) e Ora Legale (CEST, +2)
+const char* FUSO_ORARIO = "CET-1CEST,M3.5.0,M10.5.0/3"; 
+const char* NTP_SERVER  = "pool.ntp.org";
+// ==========================================
+
+WebServer server(80);
 
 // PIN RELE'
 const int PIN_RELE_POMPA1 = 25;
@@ -15,17 +36,12 @@ const uint8_t ORA_IRRIGAZIONE   = 8;
 const uint8_t MINUTO_POMPA1     = 0;
 const uint8_t MINUTO_POMPA2     = 2;
 
-// INTERVALLO POMPA 1: ogni 2 giorni (espressi in secondi)
-const uint32_t INTERVALLO_POMPA1_SEC = 172800UL;
+const uint32_t INTERVALLO_POMPA1_SEC = 172800UL; // 2 giorni
+const uint8_t GIORNO_POMPA2 = 6;                // Sabato (6 = Sabato in RTClib)
 
-// GIORNO POMPA 2: Sabato (0=Dom, 1=Lun, ..., 6=Sab)
-const uint8_t GIORNO_POMPA2 = 6;
-
-// SENSORE GALLEGGIANTE (Opzionale)
 const bool USA_GALLEGGIANTE = false;
 const int PIN_GALLEGGIANTE = 27;
 
-// CONFIGURAZIONE EEPROM
 const int EEPROM_ADDR_TIMESTAMP  = 0;
 const int EEPROM_ADDR_GIORNO_P2  = 4;
 const int EEPROM_ADDR_MAGIC      = 5;
@@ -68,28 +84,213 @@ bool serbatoioOk() {
   return digitalRead(PIN_GALLEGGIANTE) == LOW;
 }
 
-void salvaStatoFinalePompa1() {
-  eepromWriteUint32(EEPROM_ADDR_TIMESTAMP, ultimoTimestampPompa1);
-  Serial.println("[EEPROM] Timestamp Pompa 1 salvato.");
+void salvaStatoFinalePompa1() { eepromWriteUint32(EEPROM_ADDR_TIMESTAMP, ultimoTimestampPompa1); }
+void salvaStatoFinalePompa2() { EEPROM.write(EEPROM_ADDR_GIORNO_P2, ultimoGiornoPompa2); EEPROM.commit(); }
+
+// FUNZIONE PER AGGIORNARE L'RTC CON L'ORA DI INTERNET
+void sincronizzaOraNTP() {
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+    Serial.println("Orario sincronizzato da Internet e salvato su RTC!");
+  } else {
+    Serial.println("Impossibile ottenere l'orario da Internet.");
+  }
 }
 
-void salvaStatoFinalePompa2() {
-  EEPROM.write(EEPROM_ADDR_GIORNO_P2, ultimoGiornoPompa2);
-  EEPROM.commit();
-  Serial.println("[EEPROM] Giorno Pompa 2 salvato.");
+// VERIFICA COOKIE
+bool verificaUtente() {
+  if (server.hasHeader("Cookie")) {
+    String cookie = server.header("Cookie");
+    if (cookie.indexOf("RUOLO=UTENTE") != -1 || cookie.indexOf("RUOLO=ADMIN") != -1) return true;
+  }
+  return false;
+}
+
+bool verificaAdmin() {
+  if (server.hasHeader("Cookie")) {
+    String cookie = server.header("Cookie");
+    if (cookie.indexOf("RUOLO=ADMIN") != -1) return true;
+  }
+  return false;
+}
+
+// SCHERMATA DI LOGIN
+void handleLogin() {
+  String msg = "";
+  if (server.hasArg("password")) {
+    String inputPass = server.arg("password");
+    if (inputPass == PASSWORD_ADMIN) {
+      server.sendHeader("Set-Cookie", "RUOLO=ADMIN; Path=/; Max-Age=86400");
+      server.sendHeader("Location", "/");
+      server.send(303);
+      return;
+    } 
+    else if (inputPass == PASSWORD_SITO) {
+      server.sendHeader("Set-Cookie", "RUOLO=UTENTE; Path=/; Max-Age=86400");
+      server.sendHeader("Location", "/");
+      server.send(303);
+      return;
+    } 
+    else {
+      msg = "<p style='color:red;font-weight:bold;'>Password Errata!</p>";
+    }
+  }
+
+  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>";
+  html += "<title>Accesso Centralina</title>";
+  html += "<style>body{font-family:Arial,sans-serif;background:#f0f2f5;text-align:center;padding-top:100px;}";
+  html += ".box{background:white;padding:30px;margin:0 auto;max-width:350px;border-radius:10px;box-shadow:0 4px 8px rgba(0,0,0,0.1);}";
+  html += "input[type=password]{width:90%;padding:10px;margin:10px 0;border:1px solid #ccc;border-radius:5px;}";
+  html += "button{background:#28a745;color:white;border:none;padding:10px 20px;border-radius:5px;cursor:pointer;width:96%;font-weight:bold;}</style>";
+  html += "</head><body><div class='box'><h2>🔒 Inserisci la Password</h2>";
+  html += "<form method='POST' action='/login'>";
+  html += "<input type='password' name='password' placeholder='Password...' required autofocus><br>";
+  html += "<button type='submit'>Accedi</button></form>" + msg + "</div></body></html>";
+  server.send(200, "text/html", html);
+}
+
+void handleLogout() {
+  server.sendHeader("Set-Cookie", "RUOLO=LOGOUT; Path=/; Max-Age=0");
+  server.sendHeader("Location", "/login");
+  server.send(303);
+}
+
+// INTERFACCIA WEB PRINCIPALE
+void handleRoot() {
+  if (!verificaUtente()) {
+    server.sendHeader("Location", "/login");
+    server.send(303);
+    return;
+  }
+
+  DateTime now = rtc.now();
+  uint32_t ts = now.unixtime();
+  
+  long secondiMancantiP1 = 0;
+  if (!pompa1Attiva) {
+    uint32_t tempoTrascorso = ts - ultimoTimestampPompa1;
+    if (ultimoTimestampPompa1 == 0 || tempoTrascorso >= INTERVALLO_POMPA1_SEC) {
+      DateTime targetOggi(now.year(), now.month(), now.day(), ORA_IRRIGAZIONE, MINUTO_POMPA1, 0);
+      if (ts >= targetOggi.unixtime()) { secondiMancantiP1 = targetOggi.unixtime() + 86400 - ts; }
+      else { secondiMancantiP1 = targetOggi.unixtime() - ts; }
+    } else { secondiMancantiP1 = INTERVALLO_POMPA1_SEC - tempoTrascorso; }
+  }
+
+  long secondiMancantiP2 = 0;
+  if (!pompa2Attiva) {
+    int giorniMancanti = (GIORNO_POMPA2 - now.dayOfTheWeek() + 7) % 7;
+    DateTime targetSabato(now.year(), now.month(), now.day(), ORA_IRRIGAZIONE, MINUTO_POMPA2, 0);
+    uint32_t tsTarget = targetSabato.unixtime() + (giorniMancanti * 86400);
+    if (ts >= tsTarget) { tsTarget += 7 * 86400; }
+    secondiMancantiP2 = tsTarget - ts;
+  }
+
+  auto calcolaStringaTempo = [](long totalSeconds) -> String {
+    if(totalSeconds <= 0) return "In attesa...";
+    long d = totalSeconds / 86400;
+    long h = (totalSeconds % 86400) / 3600;
+    long m = (totalSeconds % 3600) / 60;
+    long s = totalSeconds % 60;
+    return (d > 0 ? String(d) + "g " : "") + String(h) + "o " + String(m) + "m " + String(s) + "s";
+  };
+
+  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>";
+  html += "<title>Smart Irrigation System</title>";
+  html += "<style>body{font-family:Arial,sans-serif;background:#f0f2f5;text-align:center;padding:20px;}";
+  html += ".card{background:white;padding:20px;margin:20px auto;max-width:400px;border-radius:10px;box-shadow:0 4px 8px rgba(0,0,0,0.1);}";
+  html += "h1{color:#28a745;} h2{color:#333;} .time{font-size:1.2em;font-weight:bold;color:#007bff;}";
+  html += ".btn{background:#007bff;color:white;border:none;padding:12px 20px;font-size:1em;border-radius:5px;cursor:pointer;margin-top:10px;width:100%;font-weight:bold;}";
+  html += ".btn-logout{background:#6c757d;margin-top:20px;width:auto;padding:8px 15px;}";
+  html += ".active{color:#dc3545;font-weight:bold;}";
+  html += ".admin-panel{background:#1e222b;color:white;text-align:left;padding:15px;margin:20px auto;max-width:400px;border-radius:10px;border: 2px solid #ffc107;}";
+  html += ".admin-panel h3{color:#ffc107;margin-top:0;font-size:1.2em;}</style>";
+  
+  html += "<script>";
+  html += "var currentTs = " + String(ts) + ";";
+  html += "var secP1 = " + String(secondiMancantiP1) + ";";
+  html += "var secP2 = " + String(secondiMancantiP2) + ";";
+  html += "var p1Attiva = " + String(pompa1Attiva ? "true" : "false") + ";";
+  html += "var p2Attiva = " + String(pompa2Attiva ? "true" : "false") + ";";
+  
+  html += "function formatTime(totalSeconds) {";
+  html += "  if(totalSeconds <= 0) return 'In attesa...';";
+  html += "  var d = Math.floor(totalSeconds / 86400);";
+  html += "  var h = Math.floor((totalSeconds % 86400) / 3600);";
+  html += "  var m = Math.floor((totalSeconds % 3600) / 60);";
+  html += "  var s = totalSeconds % 60;";
+  html += "  return (d > 0 ? d + 'g ' : '') + h + 'o ' + m + 'm ' + s + 's';";
+  html += "}";
+  
+  html += "setInterval(function() {";
+  html += "  currentTs++;";
+  html += "  var d = new Date(currentTs * 1000);";
+  html += "  document.getElementById('rtc_clock').innerHTML = d.toLocaleTimeString('it-IT') + '<br><small>Data: ' + d.toLocaleDateString('it-IT') + '</small>';";
+  html += "  if(!p1Attiva) { secP1--; document.getElementById('cd_p1').innerText = formatTime(secP1); }";
+  html += "  if(!p2Attiva) { secP2--; document.getElementById('cd_p2').innerText = formatTime(secP2); }";
+  html += "}, 1000);";
+  
+  html += "function confermaPompa(id) {";
+  html += "  if (confirm('Vuoi attivare manualmente la Pompa ' + id + '?')) { window.location.href = '/attiva?p=' + id; }";
+  html += "}";
+  html += "</script></head><body>";
+  
+  html += "<h1>Smart Irrigation System</h1>";
+  html += "<div class='card'><h2>⏰ Orologio di Sistema (RTC)</h2><p class='time' id='rtc_clock'>" + now.timestamp(DateTime::TIMESTAMP_TIME) + "<br><small>Data: " + now.timestamp(DateTime::TIMESTAMP_DATE) + "</small></p></div>";
+  
+  html += "<div class='card'><h2>💧 Pompa 1 (Ogni 2 giorni)</h2>";
+  if(pompa1Attiva) html += "<p class='active'>IN FUNZIONE</p>";
+  else html += "<p class='time' id='cd_p1'>" + calcolaStringaTempo(secondiMancantiP1) + "</p>";
+  html += "<button class='btn' onclick='confermaPompa(1)'>Avvia Ora</button></div>";
+  
+  html += "<div class='card'><h2>🌿 Pompa 2 (Settimanale)</h2>";
+  if(pompa2Attiva) html += "<p class='active'>IN FUNZIONE</p>";
+  else html += "<p class='time' id='cd_p2'>" + calcolaStringaTempo(secondiMancantiP2) + "</p>";
+  html += "<button class='btn' onclick='confermaPompa(2)'>Avvia Ora</button></div>";
+  
+  // STATISTICHE HARDWARE (VISIBILI SOLO IN MODALITA' ADMIN)
+  if (verificaAdmin()) {
+    html += "<div class='admin-panel'><h3>⚙️ Stato Hardware Centralina</h3>";
+    html += "<p>• <b>Uptime ESP32:</b> " + String(millis() / 60000) + " minuti</p>";
+    html += "<p>• <b>Segnale Wi-Fi (RSSI):</b> " + String(WiFi.RSSI()) + " dBm</p>";
+    html += "<p>• <b>Stato Serbatoio:</b> " + String(serbatoioOk() ? "OK" : "VUOTO / EMERGENZA") + "</p>";
+    html += "</div>";
+  }
+  
+  html += "<button class='btn btn-logout' onclick=\"window.location.href='/logout'\">Esci</button>";
+  html += "</body></html>";
+  server.send(200, "text/html", html);
+}
+
+void handleAttiva() {
+  if (!verificaUtente()) {
+    server.sendHeader("Location", "/login");
+    server.send(303);
+    return;
+  }
+  if (server.hasArg("p")) {
+    String pompaId = server.arg("p");
+    if (pompaId == "1" && !pompa1Attiva && serbatoioOk()) {
+      digitalWrite(PIN_RELE_POMPA1, LOW);
+      pompa1Attiva = true;
+      timerPompa1  = millis();
+    } else if (pompaId == "2" && !pompa2Attiva && serbatoioOk()) {
+      digitalWrite(PIN_RELE_POMPA2, LOW);
+      pompa2Attiva = true;
+      timerPompa2  = millis();
+    }
+  }
+  server.sendHeader("Location", "/");
+  server.send(303);
 }
 
 void setup() {
   Serial.begin(115200);
-  delay(200);
-  Serial.println();
-  Serial.println("=== Avvio sistema irrigazione ===");
+  delay(500);
 
-  EEPROM.begin(10);
-
+  EEPROM.begin(64);
   uint8_t magic = EEPROM.read(EEPROM_ADDR_MAGIC);
   if (magic != EEPROM_MAGIC_VAL) {
-    Serial.println("[EEPROM] Prima inizializzazione.");
     eepromWriteUint32(EEPROM_ADDR_TIMESTAMP, 0);
     EEPROM.write(EEPROM_ADDR_GIORNO_P2, EEPROM_DAY_EMPTY);
     EEPROM.write(EEPROM_ADDR_MAGIC, EEPROM_MAGIC_VAL);
@@ -99,10 +300,6 @@ void setup() {
   } else {
     ultimoTimestampPompa1 = eepromReadUint32(EEPROM_ADDR_TIMESTAMP);
     ultimoGiornoPompa2    = EEPROM.read(EEPROM_ADDR_GIORNO_P2);
-    Serial.print("[EEPROM] Timestamp Pompa 1: ");
-    Serial.println(ultimoTimestampPompa1);
-    Serial.print("[EEPROM] Ultimo giorno Pompa 2: ");
-    Serial.println(ultimoGiornoPompa2);
   }
 
   pinMode(PIN_RELE_POMPA1, OUTPUT);
@@ -110,57 +307,44 @@ void setup() {
   digitalWrite(PIN_RELE_POMPA1, HIGH);
   digitalWrite(PIN_RELE_POMPA2, HIGH);
 
-  if (USA_GALLEGGIANTE) {
-    pinMode(PIN_GALLEGGIANTE, INPUT_PULLUP);
-    Serial.println("[SENS] Galleggiante abilitato.");
-  }
-
   Wire.begin();
-  if (!rtc.begin()) {
-    Serial.println("[ERR] RTC non trovato! Riprovo...");
-    delay(1000);
-    if (!rtc.begin()) {
-      Serial.println("[ERR] RTC ancora assente. Sistema in modalita ridotta.");
-    }
+  rtc.begin();
+
+  // CONNESSIONE E CONFIGURAZIONE ORARIO AUTOMATICO
+  configTzTime(FUSO_ORARIO, NTP_SERVER); 
+
+  WiFi.begin(ssid, password);
+  int tentativi = 0;
+  while (WiFi.status() != WL_CONNECTED && tentativi < 30) {
+    delay(500);
+    tentativi++;
   }
 
-  if (rtc.begin() && rtc.lostPower()) {
-    Serial.println("[RTC] Batteria scarica o primo avvio, sincronizzo con ora compilazione.");
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("Connesso a Internet. Sincronizzazione orario...");
+    delay(2000); // Piccolo delay per stabilizzare la risposta dal server NTP
+    sincronizzaOraNTP(); 
+    Serial.print("IP Assegnato: ");
+    Serial.println(WiFi.localIP());
   }
 
-  if (rtc.begin()) {
-    DateTime now = rtc.now();
-    Serial.print("[RTC] Ora attuale: ");
-    Serial.println(now.timestamp());
-  }
+  server.on("/", handleRoot);
+  server.on("/login", handleLogin);
+  server.on("/logout", handleLogout);
+  server.on("/attiva", handleAttiva);
+  
+  const char* headerkeys[] = {"Cookie"};
+  size_t headerkeyssize = sizeof(headerkeys)/sizeof(char*);
+  server.collectHeaders(headerkeys, headerkeyssize);
+  
+  server.begin();
 
   pompa1OggiEseguita = false;
   pompa2OggiEseguita = false;
 }
 
 void loop() {
-  if (Serial.available()) {
-    char cmd = Serial.read();
-    if (cmd == 'i') {
-      Serial.println("[CMD] Attivazione manuale Pompa 1");
-      if (!pompa1Attiva && serbatoioOk()) {
-        digitalWrite(PIN_RELE_POMPA1, LOW);
-        pompa1Attiva = true;
-        timerPompa1  = millis();
-      } else {
-        Serial.println("[CMD] Pompa 1 non attivabile (serbatoio vuoto o gia attiva).");
-      }
-    } else if (cmd == 's') {
-      Serial.println("[CMD] Spegnimento manuale Pompa 1");
-      if (pompa1Attiva) {
-        digitalWrite(PIN_RELE_POMPA1, HIGH);
-        pompa1Attiva = false;
-        pompa1HaFinitoDaPoco = true;
-        ultimoTimestampPompa1 = rtc.now().unixtime();
-      }
-    }
-  }
+  server.handleClient();
 
   DateTime now = rtc.now();
   uint8_t  ora    = now.hour();
@@ -174,19 +358,22 @@ void loop() {
     ultimoGiornoRilevato  = giorno;
     pompa1OggiEseguita    = false;
     pompa2OggiEseguita    = false;
+    
+    // Una volta al giorno, rinfresca l'orologio dell'RTC da Internet se il Wi-Fi è connesso
+    if (WiFi.status() == WL_CONNECTED) {
+      sincronizzaOraNTP();
+    }
   }
 
   if (ora == ORA_IRRIGAZIONE && minuto == MINUTO_POMPA1 && !pompa1OggiEseguita && !pompa1Attiva) {
     bool intervalloRispettato = (ultimoTimestampPompa1 == 0) || (ts - ultimoTimestampPompa1) >= INTERVALLO_POMPA1_SEC;
     if (intervalloRispettato) {
       if (serbatoioOk()) {
-        Serial.println(">>> Avvio Pompa 1 (ogni 2 giorni)");
         digitalWrite(PIN_RELE_POMPA1, LOW);
         pompa1Attiva        = true;
         timerPompa1         = millis();
         pompa1OggiEseguita  = true;
       } else {
-        Serial.println("[WARN] Serbatoio vuoto, Pompa 1 non avviata.");
         pompa1OggiEseguita  = true;
       }
     } else {
@@ -197,13 +384,11 @@ void loop() {
   if (ora == ORA_IRRIGAZIONE && minuto == MINUTO_POMPA2 && gSett == GIORNO_POMPA2 && !pompa2OggiEseguita && !pompa2Attiva) {
     if (ultimoGiornoPompa2 != giorno) {
       if (serbatoioOk()) {
-        Serial.println(">>> Avvio Pompa 2 (sabato)");
         digitalWrite(PIN_RELE_POMPA2, LOW);
         pompa2Attiva        = true;
         timerPompa2         = millis();
         pompa2OggiEseguita  = true;
       } else {
-        Serial.println("[WARN] Serbatoio vuoto, Pompa 2 non avviata.");
         pompa2OggiEseguita  = true;
       }
     } else {
@@ -212,7 +397,6 @@ void loop() {
   }
 
   if (pompa1Attiva && (millis() - timerPompa1 >= DURATA_POMPA1_MS)) {
-    Serial.println(">>> Stop Pompa 1");
     digitalWrite(PIN_RELE_POMPA1, HIGH);
     pompa1Attiva         = false;
     pompa1HaFinitoDaPoco = true;
@@ -220,29 +404,14 @@ void loop() {
   }
 
   if (pompa2Attiva && (millis() - timerPompa2 >= DURATA_POMPA2_MS)) {
-    Serial.println(">>> Stop Pompa 2");
     digitalWrite(PIN_RELE_POMPA2, HIGH);
     pompa2Attiva         = false;
     pompa2HaFinitoDaPoco = true;
     ultimoGiornoPompa2   = giorno;
   }
 
-  if (pompa1HaFinitoDaPoco) {
-    salvaStatoFinalePompa1();
-    pompa1HaFinitoDaPoco = false;
-  }
-  if (pompa2HaFinitoDaPoco) {
-    salvaStatoFinalePompa2();
-    pompa2HaFinitoDaPoco = false;
-  }
+  if (pompa1HaFinitoDaPoco) { salvaStatoFinalePompa1(); pompa1HaFinitoDaPoco = false; }
+  if (pompa2HaFinitoDaPoco) { salvaStatoFinalePompa2(); pompa2HaFinitoDaPoco = false; }
 
-  if (ora > 23 || minuto > 59) {
-    static unsigned long lastErrTs = 0;
-    if (millis() - lastErrTs > 60000) {
-      lastErrTs = millis();
-      Serial.println("[ERR] RTC ha restituito valori invalidi, irrigazione sospesa.");
-    }
-  }
-
-  delay(50);
+  delay(10);
 }
