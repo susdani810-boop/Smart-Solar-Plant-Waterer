@@ -25,7 +25,7 @@ Power Pin (VCC): Connect this to the 5V Out on the UPS board to get the necessar
 🔋 Power Management Board (UPS v3)
 This board brings together the batteries and the solar panel, and distributes power to the entire system. It holds two 18650 lithium batteries in its built-in slot.
 
-Power Output Terminals (5V Out + / -): This is where the power for the whole project comes from. The positive pole (+) connects to the 5V pin on the ESP32 and the VCC pin on the relay. The negative pole (-) connects to the GND pin on the ESP32, creating the common ground line.
+Power Output Terminals (UPS Out + / -): This is where the power for the whole project comes from. The positive pole (+) connects to the 5V pin on the ESP32 and the VCC pin on the relay. The negative pole (-) connects to the GND pin on the ESP32, creating the common ground line.
 
 Solar Input Terminals (Solar In + / -): The positive pole (+) takes the red wire from the solar panel, while the negative pole (-) takes the black wire from the solar panel.
 
