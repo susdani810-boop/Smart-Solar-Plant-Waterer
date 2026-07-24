@@ -1,0 +1,18 @@
+Hey everyone! 👋 Here is a quick guide on how to set up and configure the ESP32 Smart Irrigation System before uploading it to your board.
+First off, you need to configure your network credentials and security access keys. 
+Just open the code and replace the placeholder text with your own local Wi-Fi network name and password in the Wi-Fi configuration section,
+making sure your SSID and network password are correctly entered between the quotes.
+Right below that, you will find the security section where you need to change the default access keys.
+Make sure to update both user and admin passwords with your own secret strings to properly secure the web server interface and protect the admin panel from 
+unauthorized access.
+Once your credentials are set, you'll need to make sure you have the right libraries installed in your Arduino IDE.
+The code relies on standard libraries:
+EEPROM
+WiFi
+WebServer
+ Wire
+but you will also need to install the RTClib by Adafruit via the Library Manager to get the DS3231 real-time clock working properly.
+That's pretty much it! Once everything is configured and uploaded, 
+you'll have a fully working automated dual-pump irrigation system featuring an RTC clock,
+a clean mobile-friendly web dashboard with dark mode support, and an admin panel to track your device status and recent connection logs.
+Enjoy!
